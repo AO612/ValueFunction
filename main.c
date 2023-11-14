@@ -33,7 +33,9 @@ typedef struct Cell
 typedef struct Map
 {
 	float theta; // Sets ccuracy of estimation and tests for covergence, loop until value of change less than theta or max iterations
-	float probability; // Probability of robot moving to the correct cell, models uncertainty in action
+	float probability; // Probability of moving to the correct cell, models uncertainty in action
+	// Example: If probability = 0.9, and chosen action is to move right, there is a 0.05 chance it moves top right
+	// and a 0.05 chance it moves bottom right.
 	float gamma; // Discount factor
 	Cell grid[COLS][ROWS];
 	int max_iterations; // Maximum number of loops
@@ -437,6 +439,7 @@ void ExtractPolicy(Map *map)
 	}
 }
 
+// Calculates new cell value
 float CalculateValue(Map *map, int action, int x, int y)
 {
 	float new_probability;
@@ -446,19 +449,21 @@ float CalculateValue(Map *map, int action, int x, int y)
 	int new_action;
 	float new_v = 0;
 
+	// Probability that action is diverted to the either side, therefore three actions instead of one
 	for (int i = -1; i < 2; i++)
 	{
-		if (i == 0)
+		if (i == 0) // Correct action
 		{
 			new_probability = map->probability;
 		}
-		else
+		else // Sideways action
 		{
 			new_probability = (1 - map->probability)/2;
 		}
 
 		new_action = action + i;
 
+		// New actions loop around to stay between 0 and 7
 		if (new_action == 8)
 		{
 			new_action = 0;
@@ -468,6 +473,7 @@ float CalculateValue(Map *map, int action, int x, int y)
 			new_action = 7;
 		}
 
+		// Find new cell position given action
 		if (new_action > 0 && new_action < 4)
 		{
 			new_x = x + 1;
@@ -494,8 +500,10 @@ float CalculateValue(Map *map, int action, int x, int y)
 			new_y = y;
 		}
 
+		// If the new cell position is in the grid
 		if (IndexIsValid(new_x, new_y))
 		{
+			// If the new cell position is an obstruction give collision penalty to reward and do not change position
 			if (map->grid[new_x][new_y].cellType == OBSTRUCTION)
 			{
 				new_reward = map->collisionPenalty;
@@ -504,19 +512,23 @@ float CalculateValue(Map *map, int action, int x, int y)
 			}
 			else
 			{
+				// If both the x and y position are changed, apply a larger 1.4 * diagonal movement penalty,
+				// otherwise apply a normal 1 * movement penalty
 				new_reward = new_x != x && new_y != y ? 1.4 * map->movementPenalty : map->movementPenalty;
 			}
 		}
-		else
+		else // If the new cell position is off the grid, apply movement penalty to reward but do not change position
 		{
 			new_reward = new_x != x && new_y != y ? 1.4 * map->movementPenalty : map->movementPenalty;
 			new_x = x;
 			new_y = y;
 		}
 
+		// Collect values from different actions to calculate the new value using the Bellman equation
 		new_v = new_v + new_probability * (new_reward + map->gamma * map->grid[new_x][new_y].value);
 
 	}
-
+	
+	// Return the new value
 	return new_v;
 }
