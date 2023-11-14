@@ -6,87 +6,105 @@
 #include "raylib.h"
 #include "raymath.h"
 
+// Map dimensions
 #define COLS 20
 #define ROWS 20
 
+// Cell property
 typedef enum CellType
 {
-	OPEN,
-	GOAL,
-	HOLE,
-    OBSTRUCTION
+	OPEN, // Free movement through cell
+	GOAL, // Destination
+	HOLE, // Should be avoided
+    	OBSTRUCTION // Wall
 } CellType;
 
+// Contains information about each cell
 typedef struct Cell
 {
 	int x;
-	int y;
-	CellType cellType;
-	float value;
-	int action;
+	int y; // Position
+	CellType cellType; // Cell property
+	float value; // Desirability of location in cell
+	int action; // Integer represents best direction to move out of cell
 } Cell;
 
+// Information about map
 typedef struct Map
 {
-	float theta;
-	float probability;
-	float gamma;
+	float theta; // Sets ccuracy of estimation and tests for covergence, loop until value of change less than theta or max iterations
+	float probability; // Probability of robot moving to the correct cell, models uncertainty in action
+	float gamma; // Discount factor
 	Cell grid[COLS][ROWS];
-	int max_iterations;
-	int movementPenalty;
-	int collisionPenalty;
-    int cellWidth;
+	int max_iterations; // Maximum number of loops
+	int movementPenalty; // Cost of movement
+	int collisionPenalty; // Cost of colliding with wall
+    	int cellWidth;
 	int cellHeight;
 } Map;
 
+// Draws cell borders, interior colour and value to screen
 void CellDraw(Cell*, int, int);
+// Draws direction arrow in cell to screen
 void DrawDirections(Cell*, int, int);
+// Checks that the index is suitable
 bool IndexIsValid(int, int);
+// Cycles a cell through the different cell tyles
 void ChangeCellType(Cell*);
+// Initialises each grid and adds random obstacles
 void GridInit(Map*);
+// Initialises the map
 void MapInit(Map*);
+// Value Iteration function calls the two following functions
 void ValueIteration(Map*);
+// Loops through grid updating cell values
 void ComputeValueFunction(Map*);
+// Calculates best action to take given surrounding cell values
 void ExtractPolicy(Map*);
+// Calculates new cell value
 float CalculateValue(Map*, int, int, int);
 
 int main()
 {
+	// Generate random seed
 	srand(time(0));
 
 	int screenWidth = 760;
 	int screenHeight = 760;
 
-    Map map;
+    	Map map;
 
-    map.cellWidth = screenWidth / COLS;
+    	map.cellWidth = screenWidth / COLS;
 	map.cellHeight = screenHeight / ROWS;
 
+	// Create window
 	InitWindow(screenWidth, screenHeight, "Value Iteration");
 
 	MapInit(&map);
 	
 	while(!WindowShouldClose())
 	{
-
+		// A left mouse click cycles through cell types
 		if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 		{
 			Vector2 mPos = GetMousePosition();
 			int x = mPos.x / map.cellWidth;
 			int y = mPos.y / map.cellHeight;
 
-            if (IndexIsValid(x, y))
+            		if (IndexIsValid(x, y))
 			{
 				ChangeCellType(&map.grid[x][y]);
 			}
 
 		}
 
+		// The space bar starts the value iteration process
 		if (IsKeyPressed(KEY_SPACE))
 		{
 			ValueIteration(&map);
 		}
 
+		// The R key resets the map
 		if (IsKeyPressed(KEY_R))
 		{
 			MapInit(&map);
@@ -94,15 +112,16 @@ int main()
 
 		BeginDrawing();
 
-        ClearBackground(RAYWHITE);
-        
-        for (int x = 0; x < COLS; x++)
-        {
-            for (int y = 0; y < ROWS; y++)
-            {
-                CellDraw(&map.grid[x][y], map.cellWidth, map.cellHeight);
-            }
-        }
+	        ClearBackground(RAYWHITE);
+
+		// Draw each cell in the grid
+	        for (int x = 0; x < COLS; x++)
+	        {
+	            for (int y = 0; y < ROWS; y++)
+	            {
+	                CellDraw(&map.grid[x][y], map.cellWidth, map.cellHeight);
+	            }
+	        }
 
 		EndDrawing();
 	}
@@ -112,24 +131,25 @@ int main()
 	return 0;
 }
 
+// Draws cell borders, interior colour and value to screen
 void CellDraw(Cell *cell, int cellWidth, int cellHeight)
 {
 	int font = 12;
-    if (cell->cellType == OBSTRUCTION)
-    {
-        DrawRectangle(cell->x * cellWidth, cell->y * cellHeight, cellWidth, cellHeight, PURPLE);
-    }
+	if (cell->cellType == OBSTRUCTION) // Obstructions are purple
+	{
+	DrawRectangle(cell->x * cellWidth, cell->y * cellHeight, cellWidth, cellHeight, PURPLE);
+	}
 	else
 	{
-		if (cell->cellType == GOAL)
+		if (cell->cellType == GOAL) // Goals are yellow
 		{
 			DrawRectangle(cell->x * cellWidth, cell->y * cellHeight, cellWidth, cellHeight, (Color){255, 255, 125, 255 } );
 		}
-		else if (cell->cellType == HOLE)
+		else if (cell->cellType == HOLE) // Holes are green
 		{
 			DrawRectangle(cell->x * cellWidth, cell->y * cellHeight, cellWidth, cellHeight, (Color){55, 125, 100, 255 } );
 		}
-		else
+		else // Open cells are given a value on a gradient depending on their value
 		{
 			int max = 100;
 			int min = -100;
@@ -141,9 +161,12 @@ void CellDraw(Cell *cell, int cellWidth, int cellHeight)
 			b = b < 100 ? 100 : b;
 			DrawRectangle(cell->x * cellWidth, cell->y * cellHeight, cellWidth, cellHeight, (Color){r, g, b, 255 } );
 		}
+		// Draw arrows
 		DrawDirections(cell, cellWidth, cellHeight);
+		// Write value on cell
 		DrawText(TextFormat("%0.1f",cell->value), (cell->x + 0.1f) * cellWidth, (cell->y + 0.3f) * cellHeight, font, DARKGRAY);
 	}
+	// Draw borders
 	DrawRectangleLines(cell->x * cellWidth, cell->y * cellHeight, cellWidth, cellHeight, BLACK);
 }
 
@@ -251,7 +274,7 @@ void GridInit(Map *map)
 			{
 				.x = x,
 				.y = y,
-                .cellType = OPEN,
+                		.cellType = OPEN,
 				.value = 0,
 				.action = 8
 			};
