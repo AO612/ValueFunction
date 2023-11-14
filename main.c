@@ -26,7 +26,7 @@ typedef struct Cell
 	int y; // Position
 	CellType cellType; // Cell property
 	float value; // Desirability of location in cell
-	int action; // Integer represents best direction to move out of cell
+	int action; // Integer represents best direction to move out of cell, clockwise with 0 at top
 } Cell;
 
 // Information about map
@@ -49,7 +49,7 @@ void CellDraw(Cell*, int, int);
 void DrawDirections(Cell*, int, int);
 // Checks that the index is suitable
 bool IndexIsValid(int, int);
-// Cycles a cell through the different cell tyles
+// Cycles a cell through the different cell types
 void ChangeCellType(Cell*);
 // Initialises each grid and adds random obstacles
 void GridInit(Map*);
@@ -170,9 +170,10 @@ void CellDraw(Cell *cell, int cellWidth, int cellHeight)
 	DrawRectangleLines(cell->x * cellWidth, cell->y * cellHeight, cellWidth, cellHeight, BLACK);
 }
 
+// Draws direction arrow in cell to screen
 void DrawDirections(Cell *cell, int cellWidth, int cellHeight)
 {
-	if (cell->action == 8)
+	if (cell->action == 8) // Action initially set to 8, no direction
 	{
 	}
 	else
@@ -181,76 +182,78 @@ void DrawDirections(Cell *cell, int cellWidth, int cellHeight)
 		int y;
 		Vector2 start;
 		Vector2 end;
-		if (cell->action == 0)
+		if (cell->action == 0) // Point up
 		{
 			x = cell->x*cellWidth + cellWidth/2;
 			y = cell->y*cellHeight + cellHeight/4;
 			end = (Vector2){x, y + 0.65*cellHeight};
 		}
-		else if (cell->action == 1)
+		else if (cell->action == 1) // Point up and right
 		{
 			x = cell->x*cellWidth + 3*cellWidth/4;
 			y = cell->y*cellHeight + cellHeight/4;
 			end = (Vector2){x - 0.53*cellWidth, y + 0.53*cellHeight};
 		}
-		else if (cell->action == 2)
+		else if (cell->action == 2) // Point right
 		{
 			x = cell->x*cellWidth + 3*cellWidth/4;
 			y = cell->y*cellHeight + cellHeight/2;
 			end = (Vector2){x - 0.65*cellHeight, y};
 		}
-		else if (cell->action == 3)
+		else if (cell->action == 3) // Point down and right
 		{
 			x = cell->x*cellWidth + 3*cellWidth/4;
 			y = cell->y*cellHeight + 3*cellHeight/4;
 			end = (Vector2){x - 0.53*cellWidth, y - 0.53*cellHeight};
 		}
-		else if (cell->action == 4)
+		else if (cell->action == 4) // Point down
 		{
 			x = cell->x*cellWidth + cellWidth/2;
 			y = cell->y*cellHeight + 3*cellHeight/4;
 			end = (Vector2){x, y - 0.65*cellHeight};
 		}
-		else if (cell->action == 5)
+		else if (cell->action == 5) // Point down and left
 		{
 			x = cell->x*cellWidth + cellWidth/4;
 			y = cell->y*cellHeight + 3*cellHeight/4;
 			end = (Vector2){x + 0.53*cellWidth, y - 0.53*cellHeight};
 		}
-		else if (cell->action == 6)
+		else if (cell->action == 6) // Point left
 		{
 			x = cell->x*cellWidth + cellWidth/4;
 			y = cell->y*cellHeight + cellHeight/2;
 			end = (Vector2){x + 0.65*cellHeight, y};
 		}
-		else if (cell->action == 7)
+		else if (cell->action == 7) // Point up and left
 		{
 			x = cell->x*cellWidth + cellWidth/4;
 			y = cell->y*cellHeight + cellHeight/4;
 			end = (Vector2){x + 0.53*cellWidth, y + 0.53*cellHeight};
 		}
 		start = (Vector2){x,y};
+		// Draw the arrow
 		DrawCircle(x, y, cellWidth/8, RED);
 		DrawLineEx(start, end, 2, RED);
 	}
 }
 
+// Cycles a cell through the different cell types
 void ChangeCellType(Cell *cell)
 {
     if (cell->cellType == OPEN)
     {
         cell->cellType = GOAL;
-		cell->value = 100;
+	cell->value = 100; // Goals have a high value
     }
     else if (cell->cellType == GOAL)
     {
         cell->cellType = HOLE;
-		cell->value = -100;
+	cell->value = -100; // Holes have a low value
     }
     else if (cell->cellType == HOLE)
     {
         cell->cellType = OBSTRUCTION;
-		cell->value = 0;
+	cell->value = 0;
     }
     else if (cell->cellType == OBSTRUCTION)
     {
@@ -258,19 +261,20 @@ void ChangeCellType(Cell *cell)
     }
 }
 
-
+// Checks that the index is suitable
 bool IndexIsValid(int x, int y)
 {
 	return x >= 0 && x < COLS && y >= 0 && y < ROWS;
 }
 
+// Initialises each grid and adds random obstacles
 void GridInit(Map *map)
 {
 	for (int x = 0; x < COLS; x++)
 	{
 		for (int y = 0; y < ROWS; y++)
 		{
-			map->grid[x][y] = (Cell)
+			map->grid[x][y] = (Cell) // Gives initial value to each cell
 			{
 				.x = x,
 				.y = y,
@@ -281,6 +285,7 @@ void GridInit(Map *map)
 		}
 	}
 
+	// Randomly adds obstacles
 	int obstaclesPresent = (int)(ROWS * COLS * 0.1f);
 	int obstaclesToPlace = obstaclesPresent;
 	while (obstaclesToPlace > 0)
@@ -296,23 +301,27 @@ void GridInit(Map *map)
 	}
 }
 
+// Initialises the map
 void MapInit(Map *map)
 {
-    map->theta = 1e-6;
-    map->probability = 0.8;
-    map->gamma = 1;
-    map->max_iterations = 100;
-    map->movementPenalty = -10;
-    map->collisionPenalty = -50;
+	map->theta = 1e-6;
+	map->probability = 0.8;
+	map->gamma = 1;
+	map->max_iterations = 100;
+	map->movementPenalty = -10;
+	map->collisionPenalty = -50;
 	GridInit(map);
 }
 
 void ValueIteration(Map *map)
 {
+	// Value function calculated first
 	ComputeValueFunction(map);
+	// Then optimal actions are found
 	ExtractPolicy(map);
 }
 
+// Loops through grid updating cell values
 void ComputeValueFunction(Map *map)
 {
 	bool loop = true;
@@ -326,32 +335,41 @@ void ComputeValueFunction(Map *map)
 	{
 		printf("%d\n",iterations);
 		delta = 0;
+		// Sweep systematically over the cells
 		for (int x = 0; x < COLS; x++)
 		{
 			for (int y = 0; y < ROWS; y++)
 			{	
+				// Skip obstructions, holes and goals
 				if (map->grid[x][y].cellType == OPEN)
 				{
+					// Store the previous value
 					old_v = map->grid[x][y].value;
 					max_v = 0;
+					// Loop over all eight actions
 					for (int action = 0; action < 8; action++)
 					{
+						// Calculate a new value given the action
 						new_v = CalculateValue(map, action, x, y);
 
+						// First or highest value stored in max_v
 						if (action == 0 || new_v > max_v)
 						{
 							max_v = new_v;
 						}
 
 					}
-
+					
+					// New value is the maximum value
 					map->grid[x][y].value = max_v;
 
+					// Update the maximum deviation
 					if (fabsf(old_v - max_v) > delta)
 					{
 						delta = fabsf(old_v - max_v);
 					}
 
+					// Update the cell on screen
 					BeginDrawing();
 
 					CellDraw(&map->grid[x][y], map->cellWidth, map->cellHeight);
@@ -361,13 +379,17 @@ void ComputeValueFunction(Map *map)
 				}
 			}
 		}
-		
+
+		// Increment iteration count
 		iterations += 1;
 
+		// Terminate the loop if the change was very small -> convergence
 		if (delta < map->theta)
 		{
 			loop = false;
 		}
+		
+		// Terminate the loop if the maximum number of iterations is met
 		if (iterations > map->max_iterations)
 		{
 			loop = false;
@@ -375,6 +397,7 @@ void ComputeValueFunction(Map *map)
 	}
 }
 
+// Calculates best action to take given surrounding cell values
 void ExtractPolicy(Map *map)
 {
 	int best_action;
@@ -382,18 +405,24 @@ void ExtractPolicy(Map *map)
 	float new_v;
 	float max_v;
 	float delta;
+	// Sweep systematically over the cells
 	for (int x = 0; x < COLS; x++)
 	{
 		for (int y = 0; y < ROWS; y++)
 		{	
+			// Skip obstructions, holes and goals
 			if (map->grid[x][y].cellType == OPEN)
 			{
+				// Store the previous value
 				old_v = map->grid[x][y].value;
 				max_v = 0;
+				// Loop over all eight actions
 				for (int action = 0; action < 8; action++)
 				{
+					// Calculate a new value given the action
 					new_v = CalculateValue(map, action, x, y);
 
+					// First or highest value stored in max_v along with corresponding action
 					if (action == 0 || new_v > max_v)
 					{
 						max_v = new_v;
@@ -401,6 +430,7 @@ void ExtractPolicy(Map *map)
 					}
 
 				}
+				// Best action is the action that corresponds with the maximum value
 				map->grid[x][y].action = best_action;
 			}
 		}
